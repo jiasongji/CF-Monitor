@@ -47,17 +47,22 @@ jobs:
       - name: 🏗️ Build frontend assets
         run: npm run build:frontend
 
+      # 部署到既有 Worker cf-server-monitor（保留 D1、Durable Objects、自定义域名与已配置的 secret）。
+      # keep_vars = true 保证不覆盖线上环境变量/secret。
       - name: 📝 Create wrangler.toml
         run: |
           cat > wrangler.toml << 'WEOF'
-          name = "server-monitor-pro"
+          name = "cf-server-monitor"
           main = "src/index.js"
           compatibility_date = "2024-12-01"
           compatibility_flags = ["nodejs_compat"]
 
-          # 定时任务配置（UTC）
-          # - 每分钟：执行离线节点检测
-          # - 每小时：合并执行其他定时任务（每月1号数据清理、每月8号清理旧表、每天12点服务器到期检测）
+          keep_vars = true
+
+          routes = [
+            { pattern = "rcrc.eu.org", custom_domain = true }
+          ]
+
           [triggers]
           crons = ["*/1 * * * *", "0 * * * *"]
 
@@ -68,9 +73,8 @@ jobs:
           [[d1_databases]]
           binding = "DB"
           database_name = "server-monitor-db"
-          database_id = "D1_PLACEHOLDER"
+          database_id = "6994518c-f0e8-46b1-a87f-6bdd40521a5a"
 
-          # Durable Objects：实时指标广播中心
           [[durable_objects.bindings]]
           name = "METRICS_BROADCASTER"
           class_name = "MetricsBroadcaster"
@@ -78,18 +82,7 @@ jobs:
           [[migrations]]
           tag = "v1"
           new_sqlite_classes = ["MetricsBroadcaster"]
-
-          [vars]
-          API_SECRET = "SECRET_PLACEHOLDER"
-          API_USER_NAME = "USER_NAME_PLACEHOLDER"
-          CORS_ALLOWED_ORIGINS = "CORS_ORIGINS_PLACEHOLDER"
           WEOF
-
-          # 替换占位符
-          sed -i "s|D1_PLACEHOLDER|${{ secrets.D1_DATABASE_ID }}|g" wrangler.toml
-          sed -i "s|SECRET_PLACEHOLDER|${{ secrets.API_SECRET }}|g" wrangler.toml
-          sed -i "s|USER_NAME_PLACEHOLDER|${{ secrets.API_USER_NAME }}|g" wrangler.toml
-          sed -i "s|CORS_ORIGINS_PLACEHOLDER|${{ secrets.CORS_ALLOWED_ORIGINS }}|g" wrangler.toml
 
           echo "✅ wrangler.toml 已生成"
 
