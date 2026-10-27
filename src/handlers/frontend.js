@@ -529,7 +529,11 @@ export async function serveFrontend(request, env, settings = null) {
     if (themeHtml) {
       return buildHtmlResponse(themeHtml, settings, request, env, previewThemeUrl);
     }
-    return buildThemeIndexErrorResponse();
+    // 远程主题不可用时降级到内置面板，避免自定义主题源故障导致整站 502
+    if (previewThemeUrl) {
+      return buildThemeIndexErrorResponse();
+    }
+    console.warn(`[Frontend] 自定义主题拉取失败，已降级到内置面板: ${effectiveThemeUrl}`);
   }
 
   const files = await loadFrontendFiles(env);

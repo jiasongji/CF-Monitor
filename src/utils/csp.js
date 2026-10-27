@@ -102,7 +102,14 @@ export function injectApiBase(html, apiBases) {
 }
 
 function escapeCssUrl(value) {
-  return String(value).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"');
+  // < > 必须转义，防止恶意 URL 闭合 <style> 标签逃逸出 HTML 注入点
+  return String(value)
+    .replace(/[\r\n]/g, '')
+    .replace(/\\/g, '\\\\')
+    .replace(/'/g, "\\'")
+    .replace(/"/g, '\\"')
+    .replace(/</g, '\\3c ')
+    .replace(/>/g, '\\3e ');
 }
 
 function buildBodyBackgroundRule(safeUrl) {

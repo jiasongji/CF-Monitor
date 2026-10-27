@@ -281,6 +281,10 @@ export default {
       { method: 'POST', path: '/update', handler: () => handleUpdate(request, env, ctx) },
       { method: 'GET', path: '/update', handler: () => handleUpdateWebSocketUpgrade(request, env) },
       { method: 'GET', path: '/__do/health', handler: async () => {
+        // 集群连接数信息仅管理员可见，避免未鉴权暴露拓扑活跃度
+        if (!await checkAuth(request, env, sys)) {
+          return simpleAuthResponse();
+        }
         if (!env.METRICS_BROADCASTER) {
           return createSuccessResponse({ ok: false, reason: 'DO not bound' });
         }
@@ -439,19 +443,7 @@ export default {
           return response;
         }
 
-        if (setTurnstileVerified) {
-          const finalHeaders = new Headers(response.headers);
-          finalHeaders.set('Access-Control-Allow-Origin', request.headers.get('Origin') || '');
-          finalHeaders.set('Access-Control-Allow-Credentials', 'true');
-          finalHeaders.set('Vary', 'Origin');
-
-          return new Response(response.body, {
-            status: response.status,
-            statusText: response.statusText,
-            headers: finalHeaders
-          });
-        }
-
+        // Turnstile 校验通过也必须遵守 CORS 白名单，禁止反射任意 Origin
         return applyCors(response, request, corsAllowedOrigins);
       }
     }
